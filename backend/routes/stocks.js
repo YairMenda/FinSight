@@ -2,7 +2,8 @@ import express from 'express';
 import yahooFinance from 'yahoo-finance2';
 import dayjs from 'dayjs';
 import { rateLimit } from 'express-rate-limit';
-import { runPythonModel } from "../services/predictionService.js";
+// import { runGRUPrediction } from '../services/predictionService.js';
+import { runXGboostPrediction } from "../services/predictionService.js";
 
 const router = express.Router();
 
@@ -92,37 +93,46 @@ router.get('/:symbol', async (req, res) => {
 //   }
 // });
 
-// 🔮 GET /api/stocks/:symbol/predict → Uses real ML model
-router.get('/:symbol/predict', async (req, res) => {
-  const { symbol } = req.params;
+// 🔮 GET /api/stocks/:symbol/predict/:days_from/:futureDays
+router.get('/:symbol/predict/:days_from/:futureDays', async (req, res) => {
+  const { symbol, days_from, futureDays } = req.params;
 
-  const to = dayjs().format('YYYY-MM-DD');
-  const from = dayjs().subtract(120, 'day').format('YYYY-MM-DD'); // adjustable
-  const futureDays = 10;
+  // validate
+  if (!symbol || !days_from || !futureDays) {
+    return res.status(400).json({
+      error: 'Path parameters required: symbol, days_from (YYYY-MM-DD), futureDays (integer)'
+    });
+  }
 
   try {
-    const result = await runPythonModel('xgboost', symbol, from, to, futureDays);
+    const result = await runXGboostPrediction(
+      symbol,
+      days_from,
+      parseInt(futureDays, 10)
+    );
     res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to generate prediction' });
+    console.error('GRU prediction error:', err);
+    res.status(500).json({
+      error: 'Failed to generate prediction: ' + err.message
+    });
   }
 });
 
-// 📈 GET /api/stocks/:symbol/history?range=1y&interval=1d
+// GET /api/stocks/:symbol/history?range=1y&interval=1d
 router.get('/:symbol/history', async (req, res) => {
   const { symbol } = req.params;
   const { range = '1y', interval = '1d' } = req.query;
 
   try {
-    // Yahoo API doesn't accept range directly for historical, so we'll convert range to dates
     const to = dayjs();
-    const from = dayjs().subtract(1, 'year'); // You can expand this to support multiple ranges
+    // You can parse `range` into a unit/duration if you like; here we just default to 1 year:
+    const from = dayjs().subtract(1, 'year');
 
     const history = await yahooFinance.historical(symbol, {
       period1: from.toDate(),
       period2: to.toDate(),
-      interval,
+      interval
     });
 
     res.json(history);
