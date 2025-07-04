@@ -26,9 +26,9 @@ import path from 'path';
 //   });
 // };
 
-export const runXGboostPrediction = (symbol, days_from, futureDays) => {
+export const runXGBoostPrediction = (symbol, futureDays, days_from) => {
   const scriptPath = path.join('ml', 'predict_xgboost.py');
-  const args = [symbol, days_from, futureDays.toString()];
+  const args = [symbol, futureDays.toString(), days_from];
 
   return new Promise((resolve, reject) => {
     PythonShell.run(scriptPath, { args }, (err, results) => {

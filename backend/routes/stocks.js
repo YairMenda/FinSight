@@ -3,7 +3,7 @@ import yahooFinance from 'yahoo-finance2';
 import dayjs from 'dayjs';
 import { rateLimit } from 'express-rate-limit';
 // import { runGRUPrediction } from '../services/predictionService.js';
-import { runXGboostPrediction } from "../services/predictionService.js";
+import { runXGBoostPrediction } from "../services/predictionService.js";
 
 const router = express.Router();
 
@@ -95,17 +95,17 @@ router.get('/:symbol', async (req, res) => {
 
 // 🔮 GET /api/stocks/:symbol/predict/:days_from/:futureDays
 router.get('/:symbol/predict/:days_from/:futureDays', async (req, res) => {
-  const { symbol, days_from, futureDays } = req.params;
+  const { symbol, futureDays, days_from } = req.params;
 
   // validate
-  if (!symbol || !days_from || !futureDays) {
+  if (!symbol || !futureDays || !days_from) {
     return res.status(400).json({
       error: 'Path parameters required: symbol, days_from (YYYY-MM-DD), futureDays (integer)'
     });
   }
 
   try {
-    const result = await runXGboostPrediction(
+    const result = await runXGBoostPrediction(
       symbol,
       days_from,
       parseInt(futureDays, 10)
