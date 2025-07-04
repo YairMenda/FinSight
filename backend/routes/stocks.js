@@ -2,6 +2,7 @@ import express from 'express';
 import yahooFinance from 'yahoo-finance2';
 import dayjs from 'dayjs';
 import { rateLimit } from 'express-rate-limit';
+import { runPythonModel } from "../services/predictionService.js";
 
 const router = express.Router();
 
@@ -74,20 +75,60 @@ router.get('/:symbol', async (req, res) => {
   }
 });
 
-// naive prediction: simple moving average forecast
+// // naive prediction: simple moving average forecast
+// router.get('/:symbol/predict', async (req, res) => {
+//   const { symbol } = req.params;
+//   try {
+//     const to = new Date();
+//     const from = dayjs(to).subtract(30, 'day').toDate();
+//     const history = await yahooFinance.historical(symbol, { period1: from, period2: to });
+//     const closePrices = history.map((d) => d.close).filter(Boolean);
+//     const avg = closePrices.reduce((a, b) => a + b, 0) / closePrices.length;
+//     // Return avg as next day prediction
+//     res.json({ symbol, prediction: { date: dayjs(to).add(1, 'day').format('YYYY-MM-DD'), price: avg } });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: 'Failed to generate prediction' });
+//   }
+// });
+
+// 🔮 GET /api/stocks/:symbol/predict → Uses real ML model
 router.get('/:symbol/predict', async (req, res) => {
   const { symbol } = req.params;
+
+  const to = dayjs().format('YYYY-MM-DD');
+  const from = dayjs().subtract(120, 'day').format('YYYY-MM-DD'); // adjustable
+  const futureDays = 10;
+
   try {
-    const to = new Date();
-    const from = dayjs(to).subtract(30, 'day').toDate();
-    const history = await yahooFinance.historical(symbol, { period1: from, period2: to });
-    const closePrices = history.map((d) => d.close).filter(Boolean);
-    const avg = closePrices.reduce((a, b) => a + b, 0) / closePrices.length;
-    // Return avg as next day prediction
-    res.json({ symbol, prediction: { date: dayjs(to).add(1, 'day').format('YYYY-MM-DD'), price: avg } });
+    const result = await runPythonModel('xgboost', symbol, from, to, futureDays);
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to generate prediction' });
+  }
+});
+
+// 📈 GET /api/stocks/:symbol/history?range=1y&interval=1d
+router.get('/:symbol/history', async (req, res) => {
+  const { symbol } = req.params;
+  const { range = '1y', interval = '1d' } = req.query;
+
+  try {
+    // Yahoo API doesn't accept range directly for historical, so we'll convert range to dates
+    const to = dayjs();
+    const from = dayjs().subtract(1, 'year'); // You can expand this to support multiple ranges
+
+    const history = await yahooFinance.historical(symbol, {
+      period1: from.toDate(),
+      period2: to.toDate(),
+      interval,
+    });
+
+    res.json(history);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch historical data' });
   }
 });
 
