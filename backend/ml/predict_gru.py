@@ -1,3 +1,4 @@
+import sys
 import pandas as pd
 import yfinance as yf
 from sklearn.preprocessing import RobustScaler
@@ -10,7 +11,7 @@ import datetime
 from datetime import timedelta
 
 
-def GRU_model(symbol, days_to_forecast, from_date):
+def GRU_model_predict(symbol, days_to_forecast, from_date):
     # Convert from_date to datetime
     from_date = pd.to_datetime(from_date)
 
@@ -147,15 +148,33 @@ def plot_results(result_json):
     plt.show()
 
 
-# Example usage
+# # Example usage
+# if __name__ == "__main__":
+#     # Get prediction results as JSON (only including data after 2021-01-01)
+#     result_json = GRU_model("AAPL", 30, "2021-01-01")
+#
+#     # Save JSON to file
+#     with open("stock_prediction_results.json", "w") as f:
+#         json.dump(result_json, f, indent=2)
+#     print("Results saved to stock_prediction_results.json")
+#
+#     # Plot from JSON
+#     plot_results(result_json)
+
 if __name__ == "__main__":
-    # Get prediction results as JSON (only including data after 2021-01-01)
-    result_json = GRU_model("AAPL", 30, "2021-01-01")
+    try:
+        # Read exactly three args
+        symbol = sys.argv[1]
+        future_days = int(sys.argv[2])
+        from_date = sys.argv[3]
 
-    # Save JSON to file
-    with open("stock_prediction_results.json", "w") as f:
-        json.dump(result_json, f, indent=2)
-    print("Results saved to stock_prediction_results.json")
+        # Run your model
+        result_json = GRU_model_predict(symbol, future_days, from_date)
 
-    # Plot from JSON
-    plot_results(result_json)
+        # Print _only_ the JSON we need
+        sys.stdout.write(json.dumps(result_json))
+
+    except Exception as e:
+        # If anything goes wrong, return it as JSON
+        sys.stdout.write(json.dumps({"error": str(e)}))
+        sys.exit(1)

@@ -2,8 +2,7 @@ import express from 'express';
 import yahooFinance from 'yahoo-finance2';
 import dayjs from 'dayjs';
 import { rateLimit } from 'express-rate-limit';
-// import { runGRUPrediction } from '../services/predictionService.js';
-import { runXGBoostPrediction } from "../services/predictionService.js";
+import { runMLAlgorithmPrediction } from "../services/predictionService.js";
 
 const router = express.Router();
 
@@ -93,31 +92,32 @@ router.get('/:symbol', async (req, res) => {
 //   }
 // });
 
-// 🔮 GET /api/stocks/:symbol/predict/:days_from/:futureDays
-router.get('/:symbol/predict/:days_from/:futureDays', async (req, res) => {
-  const { symbol, futureDays, days_from } = req.params;
+// GET /api/stocks/:algorithm/:symbol/predict/:futureDays/:days_from
+router.get('/:algorithm/:symbol/predict/:futureDays/:days_from', async (req, res) => {
+  const { algorithm, symbol, futureDays, days_from } = req.params;
 
-  // validate
-  if (!symbol || !futureDays || !days_from) {
+  if (!algorithm || !symbol || !futureDays || !days_from) {
     return res.status(400).json({
-      error: 'Path parameters required: symbol, days_from (YYYY-MM-DD), futureDays (integer)'
+      error: 'Path params required: algorithm, symbol, futureDays (integer), days_from (YYYY-MM-DD)'
     });
   }
 
   try {
-    const result = await runXGBoostPrediction(
+    const result = await runMLAlgorithmPrediction(
+      algorithm,
       symbol,
-      days_from,
-      parseInt(futureDays, 10)
+      parseInt(futureDays, 10),
+      days_from
     );
     res.json(result);
   } catch (err) {
-    console.error('GRU prediction error:', err);
+    console.error(`Prediction error [${algorithm}]:`, err);
     res.status(500).json({
-      error: 'Failed to generate prediction: ' + err.message
+      error: `Failed to run ${algorithm} prediction: ${err.message}`
     });
   }
 });
+
 
 // GET /api/stocks/:symbol/history?range=1y&interval=1d
 router.get('/:symbol/history', async (req, res) => {

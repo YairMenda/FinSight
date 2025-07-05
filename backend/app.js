@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import stocksRouter from './routes/stocks.js';
+import stocksRouter from './routes/predictionController.js';
 
 dotenv.config();
 

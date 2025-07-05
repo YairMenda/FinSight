@@ -9,132 +9,154 @@ import numpy as np
 from datetime import datetime, timedelta
 import json
 import matplotlib
+
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 
-def predict_stock(symbol: str, days_to_predict: int, from_date: str):
+def XGBoost_model_predict(symbol: str, days_to_predict: int, from_date: str) -> dict:
+    """
+        Loads historical price data, trains an XGBoost regressor, and returns test vs. forecast plot data, raw series, and error metrics.
+    """
+    # Prepare date ranges
     end_date = datetime.today()
     start_date = end_date - timedelta(days=3 * 365)
     start_str = start_date.strftime('%Y-%m-%d')
     end_str = end_date.strftime('%Y-%m-%d')
     from_date_dt = pd.to_datetime(from_date)
 
-    data = yf.download(symbol, start=start_str, end=end_str, auto_adjust=False)['Adj Close']
-    data = pd.DataFrame(data)
-    data.columns = [symbol]
+    # Download adjusted close prices
+    series = yf.download(symbol, start=start_str, end=end_str, auto_adjust=False)['Adj Close']
+    df = pd.DataFrame(series)
+    df.columns = [symbol]
 
+    # Create rolling window features
     for window in [2, 5, 10, 20, 60]:
-        data[f'{symbol}_rolling_{window}'] = data[symbol].rolling(window=window).mean().ffill().bfill()
-        data[f'{symbol}_rollingSTD_{window}'] = data[symbol].rolling(window=window).std().ffill().bfill()
-        data[f'{symbol}_rollingMedian_{window}'] = data[symbol].rolling(window=window).median().ffill().bfill()
+        df[f'{symbol}_rolling_{window}'] = df[symbol].rolling(window=window).mean().ffill().bfill()
+        df[f'{symbol}_rollingSTD_{window}'] = df[symbol].rolling(window=window).std().ffill().bfill()
+        df[f'{symbol}_rollingMedian_{window}'] = df[symbol].rolling(window=window).median().ffill().bfill()
 
-    data.bfill(inplace=True)
-    data.ffill(inplace=True)
+    df.bfill(inplace=True)
+    df.ffill(inplace=True)
 
-    scaler_X = StandardScaler()
-    X_scaled = pd.DataFrame(scaler_X.fit_transform(data.drop(columns=[symbol])),
-                            columns=data.columns.drop(symbol),
-                            index=data.index)
+    # Scale features and split
+    X = df.drop(columns=[symbol])
+    scaler = StandardScaler()
+    X_scaled = pd.DataFrame(
+        scaler.fit_transform(X),
+        index=X.index,
+        columns=X.columns
+    )
+    y = df[symbol]
 
-    y = data[symbol]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y, test_size=0.2, shuffle=False, random_state=42
+    )
 
-    X_train, X_test, y_train, y_test, train_dates, test_dates = train_test_split(
-        X_scaled, y, X_scaled.index, test_size=0.2, random_state=42, shuffle=False)
-
+    # Fit model
     model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42)
     model.fit(X_train, y_train)
 
+    # Predict
     y_pred = model.predict(X_test)
-    X_last_n = X_scaled.iloc[-days_to_predict:].copy()
-    y_future_pred = model.predict(X_last_n)
+    last_window = X_scaled.iloc[-days_to_predict:]
+    y_future_pred = model.predict(last_window)
 
-    test_dates = pd.Series(test_dates)
-    future_dates = pd.date_range(start=test_dates.iloc[-1] + pd.Timedelta(days=1), periods=days_to_predict, freq='D')
+    # Extract dates
+    test_dates = y_test.index
+    future_start = test_dates[-1] + pd.Timedelta(days=1)
+    future_dates = pd.date_range(start=future_start, periods=days_to_predict, freq='D')
 
-    # === Filter JSON data based on from_date ===
+    # Build JSON-serializable plot_data
     plot_data = []
-
-    for date, actual, predicted in zip(test_dates, y_test, y_pred):
-        if pd.to_datetime(date) >= from_date_dt:
+    for date, actual, pred in zip(test_dates, y_test, y_pred):
+        if date >= from_date_dt:
             plot_data.append({
-                "date": pd.to_datetime(date).strftime('%Y-%m-%d'),
-                "actual": float(actual),
-                "predicted": float(predicted)
+                'date': date.strftime('%Y-%m-%d'),
+                'actual': float(actual),
+                'predicted': float(pred)
             })
-
     for date, forecast in zip(future_dates, y_future_pred):
-        if pd.to_datetime(date) >= from_date_dt:
+        if date >= from_date_dt:
             plot_data.append({
-                "date": pd.to_datetime(date).strftime('%Y-%m-%d'),
-                "forecast": float(forecast)
+                'date': date.strftime('%Y-%m-%d'),
+                'forecast': float(forecast)
             })
 
+    # Compute metrics
     metrics = {
-        "r2": r2_score(y_test, y_pred),
-        "mae": mean_absolute_error(y_test, y_pred),
-        "mse": mean_squared_error(y_test, y_pred),
-        "std": float(np.std(y_pred))
+        'r2': r2_score(y_test, y_pred),
+        'mae': mean_absolute_error(y_test, y_pred),
+        'mse': mean_squared_error(y_test, y_pred),
+        'std': float(np.std(y_pred))
     }
+
+    # Convert raw series and dates to JSON-friendly types
+    test_dates_list = [d.strftime('%Y-%m-%d') for d in test_dates]
+    y_test_list = [float(x) for x in y_test]
+    y_pred_list = [float(x) for x in y_pred]
+    future_dates_list = [d.strftime('%Y-%m-%d') for d in future_dates]
+    y_future_list = [float(x) for x in y_future_pred]
 
     return {
-        "symbol": symbol,
-        "plot_data": plot_data,
-        "metrics": metrics,
-        "y_test": y_test,
-        "y_pred": y_pred,
-        "test_dates": test_dates,
-        "future_dates": future_dates,
-        "y_future_pred": y_future_pred
+        'symbol': symbol,
+        'plot_data': plot_data,
+        'metrics': metrics,
+        'test_dates': test_dates_list,
+        'y_test': y_test_list,
+        'y_pred': y_pred_list,
+        'future_dates': future_dates_list,
+        'y_future_pred': y_future_list
     }
 
 
-def plot_predictions(result):
-    symbol = result["symbol"]
-    y_test = result["y_test"]
-    y_pred = result["y_pred"]
-    test_dates = result["test_dates"]
-    future_dates = result["future_dates"]
-    y_future_pred = result["y_future_pred"]
-    metrics = result["metrics"]
+def plot_predictions(result: dict):
+    symbol = result['symbol']
+    # reconstruct types for plotting
+    test_dates = pd.to_datetime(result['test_dates'])
+    y_test = pd.Series(result['y_test'], index=test_dates)
+    y_pred = np.array(result['y_pred'])
+    future_dates = pd.to_datetime(result['future_dates'])
+    y_future_pred = np.array(result['y_future_pred'])
+    metrics = result['metrics']
 
     plt.figure(figsize=(14, 8))
-    plt.plot(test_dates, y_test.values, label='Actual (y_test)', marker='o')
-    plt.plot(test_dates, y_pred, label='Predicted (y_pred)', marker='x')
+    plt.plot(test_dates, y_test.values, label='Actual', marker='o')
+    plt.plot(test_dates, y_pred, label='Predicted', marker='x')
     plt.plot(future_dates, y_future_pred, label=f'Forecast (next {len(y_future_pred)} days)', marker='^')
-    plt.title(f"Stock: {symbol} — Actual vs Predicted vs Forecasted")
+    plt.title(f"{symbol}: Actual vs Predicted vs Forecast")
     plt.xlabel('Date')
-    plt.ylabel('Stock Price')
+    plt.ylabel('Price')
     plt.legend()
     plt.grid(True)
 
-    metric_text = (f"R²: {metrics['r2']:.4f}\n"
-                   f"MAE: {metrics['mae']:.4f}\n"
-                   f"MSE: {metrics['mse']:.4f}\n"
-                   f"STD of Predictions: {metrics['std']:.4f}")
-    plt.gcf().text(0.15, 0.75, metric_text, fontsize=12, bbox=dict(facecolor='white', alpha=0.8))
-
+    text = (
+        f"R²: {metrics['r2']:.4f}\n"
+        f"MAE: {metrics['mae']:.4f}\n"
+        f"MSE: {metrics['mse']:.4f}\n"
+        f"STD: {metrics['std']:.4f}"
+    )
+    plt.gcf().text(0.15, 0.75, text, fontsize=12, bbox=dict(facecolor='white', alpha=0.8))
     plt.tight_layout()
     plt.show()
 
 
-# # === Example Run ===
-# result = predict_stock("AAPL", 30, from_date="2024-06-01")
-# plot_predictions(result)
-#
-# # === Print Filtered JSON Data ===
-# print(json.dumps(result["plot_data"], indent=2))
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         symbol = sys.argv[1]
         future_days = int(sys.argv[2])
         from_date = sys.argv[3]
 
-        result = predict_stock(symbol, future_days, from_date)
-        print(json.dumps(result["plot_data"]))
-        # plot_predictions(result)
+        result = XGBoost_model_predict(symbol, future_days, from_date)
+        # Print JSON of only serializable keys if needed
+        print(json.dumps({
+            'symbol': result['symbol'],
+            'plot_data': result['plot_data'],
+            'metrics': result['metrics']
+        }))
+        # Or to visualize locally:
+        plot_predictions(result)
 
     except Exception as e:
-        print(json.dumps({"error": str(e)}))
+        print(json.dumps({'error': str(e)}))
         sys.exit(1)
