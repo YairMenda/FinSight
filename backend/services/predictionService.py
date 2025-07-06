@@ -15,6 +15,7 @@ from backend.ml.predict_xgboost import XGBoost_model_predict
 ALLOWED_MODELS = {
     'predict_gru',
     'predict_xgboost',
+    'predict_lightgbm'
 }
 
 # Yahoo Finance autocomplete/search endpoint
