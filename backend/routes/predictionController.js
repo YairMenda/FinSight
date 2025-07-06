@@ -93,30 +93,30 @@ router.get('/:symbol', async (req, res) => {
 // });
 
 // GET /api/stocks/:algorithm/:symbol/predict/:futureDays/:days_from
-router.get('/:algorithm/:symbol/predict/:futureDays/:days_from', async (req, res) => {
-  const { algorithm, symbol, futureDays, days_from } = req.params;
-
-  if (!algorithm || !symbol || !futureDays || !days_from) {
-    return res.status(400).json({
-      error: 'Path params required: algorithm, symbol, futureDays (integer), days_from (YYYY-MM-DD)'
-    });
-  }
-
-  try {
-    const result = await runMLAlgorithmPrediction(
-      algorithm,
-      symbol,
-      parseInt(futureDays, 10),
-      days_from
-    );
-    res.json(result);
-  } catch (err) {
-    console.error(`Prediction error [${algorithm}]:`, err);
-    res.status(500).json({
-      error: `Failed to run ${algorithm} prediction: ${err.message}`
-    });
-  }
-});
+// router.get('/:algorithm/:symbol/predict/:futureDays/:days_from', async (req, res) => {
+//   const { algorithm, symbol, futureDays, days_from } = req.params;
+//
+//   if (!algorithm || !symbol || !futureDays || !days_from) {
+//     return res.status(400).json({
+//       error: 'Path params required: algorithm, symbol, futureDays (integer), days_from (YYYY-MM-DD)'
+//     });
+//   }
+//
+//   try {
+//     const result = await runMLAlgorithmPrediction(
+//       algorithm,
+//       symbol,
+//       parseInt(futureDays, 10),
+//       days_from
+//     );
+//     res.json(result);
+//   } catch (err) {
+//     console.error(`Prediction error [${algorithm}]:`, err);
+//     res.status(500).json({
+//       error: `Failed to run ${algorithm} prediction: ${err.message}`
+//     });
+//   }
+// });
 
 
 // GET /api/stocks/:symbol/history?range=1y&interval=1d
