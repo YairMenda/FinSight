@@ -15,104 +15,96 @@ import matplotlib.pyplot as plt
 
 
 def XGBoost_model_predict(symbol: str, days_to_predict: int, from_date: str) -> dict:
-    """
-        Loads historical price data, trains an XGBoost regressor, and returns test vs. forecast plot data, raw series, and error metrics.
-    """
-    # Prepare date ranges
-    end_date = datetime.today()
-    start_date = end_date - timedelta(days=3 * 365)
-    start_str = start_date.strftime('%Y-%m-%d')
-    end_str = end_date.strftime('%Y-%m-%d')
-    from_date_dt = pd.to_datetime(from_date)
+    try:
+        # Prepare date ranges
+        end_date = datetime.today()
+        start_date = end_date - timedelta(days=3 * 365)
+        from_date_dt = pd.to_datetime(from_date)
 
-    # Download adjusted close prices
-    series = yf.download(symbol, start=start_str, end=end_str, auto_adjust=False)['Adj Close']
-    df = pd.DataFrame(series)
-    df.columns = [symbol]
+        # Download adjusted close prices
+        series = yf.download(symbol, start=start_date, end=end_date, auto_adjust=False)['Adj Close']
+        if series.empty:
+            raise ValueError(f"No data found for symbol '{symbol}'.")
 
-    # Create rolling window features
-    for window in [2, 5, 10, 20, 60]:
-        df[f'{symbol}_rolling_{window}'] = df[symbol].rolling(window=window).mean().ffill().bfill()
-        df[f'{symbol}_rollingSTD_{window}'] = df[symbol].rolling(window=window).std().ffill().bfill()
-        df[f'{symbol}_rollingMedian_{window}'] = df[symbol].rolling(window=window).median().ffill().bfill()
+        df = pd.DataFrame(series)
+        df.columns = [symbol]
 
-    df.bfill(inplace=True)
-    df.ffill(inplace=True)
+        # Create rolling window features
+        for window in [2, 5, 10, 20, 60]:
+            df[f'{symbol}_rolling_{window}'] = df[symbol].rolling(window=window).mean().ffill().bfill()
+            df[f'{symbol}_rollingSTD_{window}'] = df[symbol].rolling(window=window).std().ffill().bfill()
+            df[f'{symbol}_rollingMedian_{window}'] = df[symbol].rolling(window=window).median().ffill().bfill()
 
-    # Scale features and split
-    X = df.drop(columns=[symbol])
-    scaler = StandardScaler()
-    X_scaled = pd.DataFrame(
-        scaler.fit_transform(X),
-        index=X.index,
-        columns=X.columns
-    )
-    y = df[symbol]
+        df.bfill(inplace=True)
+        df.ffill(inplace=True)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=0.2, shuffle=False, random_state=42
-    )
+        # Scale features
+        X = df.drop(columns=[symbol])
+        y = df[symbol]
 
-    # Fit model
-    model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42)
-    model.fit(X_train, y_train)
+        scaler = StandardScaler()
+        X_scaled = pd.DataFrame(scaler.fit_transform(X), index=X.index, columns=X.columns)
 
-    # Predict
-    y_pred = model.predict(X_test)
-    last_window = X_scaled.iloc[-days_to_predict:]
-    y_future_pred = model.predict(last_window)
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_scaled, y, test_size=0.2, shuffle=False, random_state=42
+        )
 
-    # Extract dates
-    test_dates = y_test.index
-    future_start = test_dates[-1] + pd.Timedelta(days=1)
-    future_dates = pd.date_range(start=future_start, periods=days_to_predict, freq='D')
+        # Fit model
+        model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42)
+        model.fit(X_train, y_train)
 
-    # Build JSON-serializable plot_data
-    plot_data = []
-    for date, actual, pred in zip(test_dates, y_test, y_pred):
-        if date >= from_date_dt:
-            plot_data.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'actual': float(actual),
-                'predicted': float(pred)
-            })
-    for date, forecast in zip(future_dates, y_future_pred):
-        if date >= from_date_dt:
-            plot_data.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'forecast': float(forecast)
-            })
+        # Predict
+        y_pred = model.predict(X_test)
+        last_window = X_scaled.iloc[-days_to_predict:]
+        y_future_pred = model.predict(last_window)
 
-    # Compute metrics
-    metrics = {
-        'r2': r2_score(y_test, y_pred),
-        'mae': mean_absolute_error(y_test, y_pred),
-        'mse': mean_squared_error(y_test, y_pred),
-        'std': float(np.std(y_pred))
-    }
+        # Dates
+        test_dates = y_test.index
+        future_start = test_dates[-1] + pd.Timedelta(days=1)
+        future_dates = pd.date_range(start=future_start, periods=days_to_predict, freq='D')
 
-    # Convert raw series and dates to JSON-friendly types
-    test_dates_list = [d.strftime('%Y-%m-%d') for d in test_dates]
-    y_test_list = [float(x) for x in y_test]
-    y_pred_list = [float(x) for x in y_pred]
-    future_dates_list = [d.strftime('%Y-%m-%d') for d in future_dates]
-    y_future_list = [float(x) for x in y_future_pred]
+        # Plot data
+        plot_data = []
+        for date, actual, pred in zip(test_dates, y_test, y_pred):
+            if date >= from_date_dt:
+                plot_data.append({
+                    'date': date.strftime('%Y-%m-%d'),
+                    'actual': float(actual),
+                    'predicted': float(pred)
+                })
+        for date, forecast in zip(future_dates, y_future_pred):
+            if date >= from_date_dt:
+                plot_data.append({
+                    'date': date.strftime('%Y-%m-%d'),
+                    'forecast': float(forecast)
+                })
 
-    return {
-        'symbol': symbol,
-        'plot_data': plot_data,
-        'metrics': metrics,
-        'test_dates': test_dates_list,
-        'y_test': y_test_list,
-        'y_pred': y_pred_list,
-        'future_dates': future_dates_list,
-        'y_future_pred': y_future_list
-    }
+        # Metrics
+        metrics = {
+            'r2': r2_score(y_test, y_pred),
+            'mae': mean_absolute_error(y_test, y_pred),
+            'mse': mean_squared_error(y_test, y_pred),
+            'std': float(np.std(y_pred))
+        }
+
+        return {
+            'symbol': symbol,
+            'plot_data': plot_data,
+            'metrics': metrics,
+            'test_dates': [d.strftime('%Y-%m-%d') for d in test_dates],
+            'y_test': [float(v) for v in y_test],
+            'y_pred': [float(v) for v in y_pred],
+            'future_dates': [d.strftime('%Y-%m-%d') for d in future_dates],
+            'y_future_pred': [float(v) for v in y_future_pred]
+        }
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to predict for symbol '{symbol}': {e}") from e
 
 
 def plot_predictions(result: dict):
     symbol = result['symbol']
-    # reconstruct types for plotting
     test_dates = pd.to_datetime(result['test_dates'])
     y_test = pd.Series(result['y_test'], index=test_dates)
     y_pred = np.array(result['y_pred'])
@@ -148,15 +140,11 @@ if __name__ == '__main__':
         from_date = sys.argv[3]
 
         result = XGBoost_model_predict(symbol, future_days, from_date)
-        # Print JSON of only serializable keys if needed
-        print(json.dumps({
+        sys.stdout.write(json.dumps({
             'symbol': result['symbol'],
             'plot_data': result['plot_data'],
             'metrics': result['metrics']
         }))
-        # Or to visualize locally:
-        plot_predictions(result)
-
     except Exception as e:
-        print(json.dumps({'error': str(e)}))
+        sys.stderr.write(json.dumps({'error': str(e)}))
         sys.exit(1)
