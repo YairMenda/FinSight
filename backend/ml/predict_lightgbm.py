@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import json
 
 warnings.filterwarnings('ignore')
-
+#changed
 
 def lightGBM_predict(symbol, from_date_str, days_to_predict):
     # Define the full historical period for model training (last 6 years)
