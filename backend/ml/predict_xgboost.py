@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import json
 import matplotlib
 
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')  # Use Agg backend which doesn't require GUI
 import matplotlib.pyplot as plt
 
 
@@ -54,49 +54,51 @@ def XGBoost_model_predict(symbol: str, days_to_predict: int, from_date: str) -> 
         model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42)
         model.fit(X_train, y_train)
 
-        # Predict
+        # Predict on test data
         y_pred = model.predict(X_test)
+        
+        # Calculate metrics
+        mae = mean_absolute_error(y_test, y_pred)
+        mse = mean_squared_error(y_test, y_pred)
+        std = float(np.std(y_pred))
+        r2 = r2_score(y_test, y_pred)
+
+        # Future predictions
         last_window = X_scaled.iloc[-days_to_predict:]
         y_future_pred = model.predict(last_window)
 
-        # Dates
-        test_dates = y_test.index
-        future_start = test_dates[-1] + pd.Timedelta(days=1)
-        future_dates = pd.date_range(start=future_start, periods=days_to_predict, freq='D')
+        # Generate future dates
+        last_date = y_test.index[-1]
+        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=days_to_predict, freq='D')
 
-        # Plot data
-        plot_data = []
-        for date, actual, pred in zip(test_dates, y_test, y_pred):
+        # Prepare actual data (test set actual values)
+        actual_data = []
+        for date, price in y_test.items():
             if date >= from_date_dt:
-                plot_data.append({
-                    'date': date.strftime('%Y-%m-%d'),
-                    'actual': float(actual),
-                    'predicted': float(pred)
-                })
-        for date, forecast in zip(future_dates, y_future_pred):
-            if date >= from_date_dt:
-                plot_data.append({
-                    'date': date.strftime('%Y-%m-%d'),
-                    'forecast': float(forecast)
-                })
+                actual_data.append([date.strftime('%Y-%m-%d'), float(price)])
 
-        # Metrics
-        metrics = {
-            'r2': r2_score(y_test, y_pred),
-            'mae': mean_absolute_error(y_test, y_pred),
-            'mse': mean_squared_error(y_test, y_pred),
-            'std': float(np.std(y_pred))
-        }
+        # Prepare predicted data (test set predictions)
+        predicted_data = []
+        for date, price in zip(y_test.index, y_pred):
+            if date >= from_date_dt:
+                predicted_data.append([date.strftime('%Y-%m-%d'), float(price)])
+
+        # Prepare forecasted data (future predictions)
+        forecasted_data = []
+        for date, price in zip(future_dates, y_future_pred):
+            forecasted_data.append([date.strftime('%Y-%m-%d'), float(price)])
 
         return {
             'symbol': symbol,
-            'plot_data': plot_data,
-            'metrics': metrics,
-            'test_dates': [d.strftime('%Y-%m-%d') for d in test_dates],
-            'y_test': [float(v) for v in y_test],
-            'y_pred': [float(v) for v in y_pred],
-            'future_dates': [d.strftime('%Y-%m-%d') for d in future_dates],
-            'y_future_pred': [float(v) for v in y_future_pred]
+            'actual': actual_data,
+            'predicted': predicted_data,
+            'forecasted': forecasted_data,
+            'metrics': {
+                'MAE': float(mae),
+                'MSE': float(mse),
+                'STD': float(std),
+                'R2': float(r2)
+            }
         }
 
     except Exception as e:

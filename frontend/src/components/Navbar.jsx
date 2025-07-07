@@ -10,9 +10,11 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
   const [infoOpen, setInfoOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleInfoOpen = () => {
     setInfoOpen(true);
@@ -22,10 +24,26 @@ const Navbar = () => {
     setInfoOpen(false);
   };
 
+  const handleLogoClick = () => {
+    navigate('/');
+  };
+
   return (
-    <AppBar position="fixed" color="primary" sx={{ zIndex: 1201, py: 1, boxShadow:'0 0 12px rgba(100,108,255,0.6)', background:'#242424' }}>
-      <Toolbar sx={{ px: 3, display:'flex', justifyContent:'space-between' }}>
-        <Typography variant="h5" component="div" sx={{ fontWeight: 'bold', fontSize: '1.8rem' }}>
+    <AppBar position="fixed" color="primary" sx={{ zIndex: 1201, py: 1, boxShadow: '0 0 12px rgba(100,108,255,0.6)', background: '#242424' }}>
+      <Toolbar sx={{ px: 3, display: 'flex', justifyContent: 'space-between' }}>
+        <Typography
+          variant="h5"
+          component="div"
+          sx={{
+            fontWeight: 'bold',
+            fontSize: '1.8rem',
+            cursor: 'pointer',
+            '&:hover': {
+              opacity: 0.8
+            }
+          }}
+          onClick={handleLogoClick}
+        >
           FinSight
         </Typography>
         <IconButton
@@ -61,12 +79,12 @@ const Navbar = () => {
             <Typography paragraph>
               FinSight uses XGBoost, an optimized distributed gradient boosting library, to create our predictive models. This machine learning algorithm is designed for speed and performance, allowing us to analyze complex market data and deliver accurate stock price predictions with high efficiency.
             </Typography>
-            
+
             <Typography variant="h6" sx={{ color: '#6366F1', mb: 1, mt: 3 }}>Yahoo Finance Integration</Typography>
             <Typography paragraph>
               Our platform connects to Yahoo Finance APIs to retrieve real-time and historical stock data. This integration provides access to comprehensive financial information, including price history, company fundamentals, and market trends that power our analytics and visualizations.
             </Typography>
-            
+
             <Typography variant="h6" sx={{ color: '#6366F1', mb: 1, mt: 3 }}>Chatbot Integration</Typography>
             <Typography paragraph>
               FinSight features an advanced natural language processing chatbot that helps users navigate financial data and understand market insights. Our AI assistant can answer questions about stocks, explain trends, and provide personalized investment recommendations based on your queries.

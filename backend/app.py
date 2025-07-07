@@ -4,7 +4,7 @@ import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 
-from routes.predictionController import stocks_bp  # your stocks routes as a Flask Blueprint
+from backend.routes.predictionController import stocks_bp  # your stocks routes as a Flask Blueprint
 
 app = Flask(__name__)
 CORS(app)  # enable Cross-Origin Resource Sharing

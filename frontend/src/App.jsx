@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-import StockSearch from './pages/StockSearch';
-import StockDetails from './pages/StockDetails';
+import HomePage from './pages/HomePage';
 import PredictionView from './pages/PredictionView';
 import Navbar from './components/Navbar';
 import './App.css';
@@ -11,10 +10,9 @@ function App() {
     <BrowserRouter>
       <Navbar />
       <Routes>
-        <Route path="/" element={<PredictionView />} />
-        <Route path="/search" element={<StockSearch />} />
-        <Route path="/stocks/:symbol" element={<StockDetails />} />
-        <Route path="/stocks/:symbol/predict" element={<PredictionView />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/predict" element={<PredictionView />} />
+        <Route path="/predict/:symbol" element={<PredictionView />} />
       </Routes>
     </BrowserRouter>
   );

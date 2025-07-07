@@ -2,10 +2,13 @@ import sys
 import pandas as pd
 import yfinance as yf
 from sklearn.preprocessing import RobustScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import GRU, Dense, Dropout, Input, BatchNormalization
 import numpy as np
 import json
+import matplotlib
+matplotlib.use('Agg')  # Use Agg backend which doesn't require GUI
 import matplotlib.pyplot as plt
 import datetime
 from datetime import timedelta
@@ -63,7 +66,12 @@ def GRU_model_predict(symbol, days_to_forecast, from_date):
     y_pred = model.predict(X_test)
     y_pred_inverse = scaler_y.inverse_transform(y_pred)
     y_test_inverse = scaler_y.inverse_transform(y_test)
-    y_train_inverse = scaler_y.inverse_transform(y_train)
+
+    # Calculate metrics
+    mae = mean_absolute_error(y_test_inverse, y_pred_inverse)
+    mse = mean_squared_error(y_test_inverse, y_pred_inverse)
+    std = float(np.std(y_pred_inverse))
+    r2 = r2_score(y_test_inverse, y_pred_inverse)
 
     pct_change_distribution = pd.Series(y_pred_inverse.flatten()).pct_change().dropna()
     future_predictions = [y_pred_inverse[-1]]
@@ -72,27 +80,38 @@ def GRU_model_predict(symbol, days_to_forecast, from_date):
         future_predictions.append(future_predictions[-1] * (1 + pct))
 
     last_data_date = data.index[-1]
-    train_dates = data.index[:split_index]
     test_dates = data.index[split_index:]
     forecast_dates = pd.date_range(last_data_date + timedelta(days=1), periods=days_to_forecast)
 
-    all_data = {
-        "train": [{"day": d.strftime("%Y-%m-%d"), "price": float(p)}
-                  for d, p in zip(train_dates, y_train_inverse.flatten())],
-        "test_actual": [{"day": d.strftime("%Y-%m-%d"), "price": float(p)}
-                        for d, p in zip(test_dates, y_test_inverse.flatten())],
-        "test_predicted": [{"day": d.strftime("%Y-%m-%d"), "price": float(p)}
-                           for d, p in zip(test_dates, y_pred_inverse.flatten())],
-        "forecast": [{"day": d.strftime("%Y-%m-%d"), "price": float(p)}
-                     for d, p in zip(forecast_dates, future_predictions[1:])]
-    }
+    # Prepare actual data (test set actual values)
+    actual_data = []
+    for date, price in zip(test_dates, y_test_inverse.flatten()):
+        if date >= from_date:
+            actual_data.append([date.strftime("%Y-%m-%d"), float(price)])
 
-    filtered_result = {
-        key: [item for item in all_data[key] if pd.to_datetime(item["day"]) >= from_date]
-        for key in all_data
-    }
+    # Prepare predicted data (test set predictions)
+    predicted_data = []
+    for date, price in zip(test_dates, y_pred_inverse.flatten()):
+        if date >= from_date:
+            predicted_data.append([date.strftime("%Y-%m-%d"), float(price)])
 
-    return filtered_result
+    # Prepare forecasted data (future predictions)
+    forecasted_data = []
+    for date, price in zip(forecast_dates, future_predictions[1:]):
+        forecasted_data.append([date.strftime("%Y-%m-%d"), float(price)])
+
+    return {
+        "symbol": symbol,
+        "actual": actual_data,
+        "predicted": predicted_data,
+        "forecasted": forecasted_data,
+        "metrics": {
+            "MAE": float(mae),
+            "MSE": float(mse),
+            "STD": float(std),
+            "R2": float(r2)
+        }
+    }
 
 
 def plot_results(result_json):

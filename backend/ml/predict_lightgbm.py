@@ -2,8 +2,10 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from lightgbm import LGBMRegressor
 import matplotlib
+matplotlib.use('Agg')  # Use Agg backend which doesn't require GUI
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import warnings
@@ -95,9 +97,16 @@ def lightGBM_predict(symbol, from_date_str, days_to_predict):
     if len(X) != len(y):
         raise ValueError("Mismatch between features (X) and target (y).")
 
+    # Split data for training and testing
+    split_index = int(0.8 * len(X))
+    X_train, X_test = X[:split_index], X[split_index:]
+    y_train, y_test = y[:split_index], y[split_index:]
+
     scaler_X = StandardScaler()
-    X_train_scaled = scaler_X.fit_transform(X)
-    X_train_scaled = pd.DataFrame(X_train_scaled, columns=X.columns, index=X.index)
+    X_train_scaled = scaler_X.fit_transform(X_train)
+    X_test_scaled = scaler_X.transform(X_test)
+    X_train_scaled = pd.DataFrame(X_train_scaled, columns=X_train.columns, index=X_train.index)
+    X_test_scaled = pd.DataFrame(X_test_scaled, columns=X_test.columns, index=X_test.index)
 
     model = LGBMRegressor(
         n_estimators=500,
@@ -111,7 +120,16 @@ def lightGBM_predict(symbol, from_date_str, days_to_predict):
         subsample=0.8
     )
 
-    model.fit(X_train_scaled, y)
+    model.fit(X_train_scaled, y_train)
+
+    # Make predictions on test data
+    y_pred = model.predict(X_test_scaled)
+
+    # Calculate metrics
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    std = np.std(y_pred)
+    r2 = r2_score(y_test, y_pred)
 
     historical_daily_returns = data_with_features['Daily_Return'].dropna()
     mean_daily_return = historical_daily_returns.mean()
@@ -196,33 +214,50 @@ def lightGBM_predict(symbol, from_date_str, days_to_predict):
 
         historical_window = pd.concat([historical_window, new_hist]).iloc[-(max_window + 1):]
 
+    # Filter data from the specified date
     from_date_dt = datetime.strptime(from_date_str, "%Y-%m-%d")
-    actual_data = y[y.index >= from_date_dt]
+    
+    # Prepare actual data (test set actual values)
+    actual_data = []
+    for date, price in y_test.items():
+        if date >= from_date_dt:
+            actual_data.append([date.strftime("%Y-%m-%d"), float(price)])
+    
+    # Prepare predicted data (test set predictions)
+    predicted_data = []
+    for date, price in zip(y_test.index, y_pred):
+        if date >= from_date_dt:
+            predicted_data.append([date.strftime("%Y-%m-%d"), float(price)])
+    
+    # Prepare forecasted data (future predictions)
+    forecasted_data = []
+    for date, price in zip(forecast_dates, predictions):
+        forecasted_data.append([date.strftime("%Y-%m-%d"), float(price)])
 
     result = {
-        "ticker": symbol,
-        "actual_data": [(d.strftime("%Y-%m-%d"), v) for d, v in actual_data.items()],
-        "forecast_data": [(d.strftime("%Y-%m-%d"), p) for d, p in zip(forecast_dates, predictions)],
-        "forecast_stats": {
-            "min": float(np.min(predictions)) if predictions else None,
-            "max": float(np.max(predictions)) if predictions else None,
-            "mean": float(np.mean(predictions)) if predictions else None,
-            "std": float(np.std(predictions)) if predictions else None
-        },
-        "last_historical_date": last_historical_date.strftime("%Y-%m-%d")
+        "symbol": symbol,
+        "actual": actual_data,
+        "predicted": predicted_data,
+        "forecasted": forecasted_data,
+        "metrics": {
+            "MAE": float(mae),
+            "MSE": float(mse),
+            "STD": float(std),
+            "R2": float(r2)
+        }
     }
 
-    return json.dumps(result)
+    return result
 
 
 def plot_forecast(forecast_json_str):
     forecast_data = json.loads(forecast_json_str)
 
-    ticker = forecast_data['ticker']
-    actual_data = forecast_data['actual_data']
-    forecast_data_points = forecast_data['forecast_data']
-    forecast_stats = forecast_data['forecast_stats']
-    last_historical_date_str = forecast_data['last_historical_date']
+    ticker = forecast_data['symbol']
+    actual_data = forecast_data['actual']
+    forecast_data_points = forecast_data['forecasted']
+    forecast_stats = forecast_data['metrics']
+    last_historical_date_str = actual_data[-1][0]
 
     actual_dates = [pd.to_datetime(dp[0]) for dp in actual_data]
     actual_prices = [dp[1] for dp in actual_data]
@@ -260,6 +295,6 @@ if __name__ == "__main__":
 
     try:
         output = lightGBM_predict(SYMBOL, FROM_DATE, DAYS)
-        plot_forecast(output)
+        plot_forecast(json.dumps(output))
     except Exception as e:
         print(f"Error: {e}")

@@ -104,7 +104,7 @@ def run_ml_algorithm_prediction(model: str, symbol: str, future_days: int, days_
         elif model == 'predict_xgboost':
             result = XGBoost_model_predict(symbol, future_days, days_from)
         else:  # predict_lightgbm
-            result = lightGBM_predict(symbol, future_days, days_from)
+            result = lightGBM_predict(symbol, days_from, future_days)
     except ValueError:
         # propagate user/validation errors (e.g., symbol not found)
         raise
