@@ -19,17 +19,15 @@ def GRU_model_predict(symbol, days_to_forecast, from_date):
     end_date = datetime.datetime.now()
     start_date = end_date - timedelta(days=6 * 365)
 
-    try:
-        data = yf.download(symbol, start=start_date, end=end_date, progress=False)
-        if data.empty:
-            raise ValueError(f"No data available for symbol '{symbol}'.")
-    except Exception as e:
-        raise RuntimeError(f"Failed to download data for '{symbol}': {str(e)}")
+    data = yf.download(symbol, start=start_date, end=end_date, progress=False)
+    if data.empty:
+        raise ValueError(f"No data available for symbol '{symbol}'.")
 
     data = data[['Close', 'High', 'Low', 'Open', 'Volume']]
     data['Adj Close'] = data['Close']
     data = data.dropna()
 
+    # Feature engineering
     data['High_Low_Diff'] = data['High'] - data['Low']
     data['Open_Close_Diff'] = data['Open'] - data['Close']
     data['Adj_Close_5d_Rolling'] = data['Adj Close'].rolling(window=5).mean()
@@ -39,15 +37,18 @@ def GRU_model_predict(symbol, days_to_forecast, from_date):
     X = data.drop('Adj Close', axis=1)
     y = data['Adj Close']
 
+    # Scaling
     scaler_X, scaler_y = RobustScaler(), RobustScaler()
     X_scaled = scaler_X.fit_transform(X)
     y_scaled = scaler_y.fit_transform(y.values.reshape(-1, 1))
     X_scaled = X_scaled.reshape(X_scaled.shape[0], 1, X_scaled.shape[1])
 
+    # Train/test split
     split_index = int(0.9 * len(X_scaled))
     X_train, X_test = X_scaled[:split_index], X_scaled[split_index:]
     y_train, y_test = y_scaled[:split_index], y_scaled[split_index:]
 
+    # GRU Model
     model = Sequential([
         Input(shape=(X_train.shape[1], X_train.shape[2])),
         GRU(98, return_sequences=True),
@@ -63,42 +64,42 @@ def GRU_model_predict(symbol, days_to_forecast, from_date):
     model.compile(optimizer='adam', loss='mse')
     model.fit(X_train, y_train, epochs=30, batch_size=32, verbose=0)
 
-    y_pred = model.predict(X_test)
-    y_pred_inverse = scaler_y.inverse_transform(y_pred)
-    y_test_inverse = scaler_y.inverse_transform(y_test)
+    # Predict on all historical data (not just test)
+    y_all_pred_scaled = model.predict(X_scaled)
+    y_all_pred = scaler_y.inverse_transform(y_all_pred_scaled)
+    y_all_true = scaler_y.inverse_transform(y_scaled)
 
-    # Calculate metrics
-    mae = mean_absolute_error(y_test_inverse, y_pred_inverse)
-    mse = mean_squared_error(y_test_inverse, y_pred_inverse)
-    std = float(np.std(y_pred_inverse))
-    r2 = r2_score(y_test_inverse, y_pred_inverse)
+    # Evaluation metrics on test data
+    y_test_pred = model.predict(X_test)
+    y_test_pred = scaler_y.inverse_transform(y_test_pred)
+    y_test_true = scaler_y.inverse_transform(y_test)
 
-    pct_change_distribution = pd.Series(y_pred_inverse.flatten()).pct_change().dropna()
-    future_predictions = [y_pred_inverse[-1]]
+    mae = mean_absolute_error(y_test_true, y_test_pred)
+    mse = mean_squared_error(y_test_true, y_test_pred)
+    std = float(np.std(y_test_pred))
+    r2 = r2_score(y_test_true, y_test_pred)
+
+    # Forecast future prices based on simulated pct changes
+    pct_change_distribution = pd.Series(y_all_pred.flatten()).pct_change().dropna()
+    last_price = y_all_pred[-1][0]
+    future_predictions = [last_price]
     for _ in range(days_to_forecast):
         pct = np.random.choice(pct_change_distribution)
-        future_predictions.append(future_predictions[-1] * (1 + pct))
+        next_price = future_predictions[-1] * (1 + pct)
+        future_predictions.append(next_price)
 
-    last_data_date = data.index[-1]
-    test_dates = data.index[split_index:]
-    forecast_dates = pd.date_range(last_data_date + timedelta(days=1), periods=days_to_forecast)
-
-    # Prepare actual data (test set actual values)
+    # Build response
+    all_dates = data.index
     actual_data = []
-    for date, price in zip(test_dates, y_test_inverse.flatten()):
-        if date >= from_date:
-            actual_data.append([date.strftime("%Y-%m-%d"), float(price)])
-
-    # Prepare predicted data (test set predictions)
     predicted_data = []
-    for date, price in zip(test_dates, y_pred_inverse.flatten()):
-        if date >= from_date:
-            predicted_data.append([date.strftime("%Y-%m-%d"), float(price)])
 
-    # Prepare forecasted data (future predictions)
-    forecasted_data = []
-    for date, price in zip(forecast_dates, future_predictions[1:]):
-        forecasted_data.append([date.strftime("%Y-%m-%d"), float(price)])
+    for date, true_price, pred_price in zip(all_dates, y_all_true.flatten(), y_all_pred.flatten()):
+        if date >= from_date:
+            actual_data.append([date.strftime("%Y-%m-%d"), float(true_price)])
+            predicted_data.append([date.strftime("%Y-%m-%d"), float(pred_price)])
+
+    forecast_dates = pd.date_range(data.index[-1] + timedelta(days=1), periods=days_to_forecast)
+    forecasted_data = [[date.strftime("%Y-%m-%d"), float(price)] for date, price in zip(forecast_dates, future_predictions[1:])]
 
     return {
         "symbol": symbol,

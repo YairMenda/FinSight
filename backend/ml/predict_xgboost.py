@@ -16,77 +16,67 @@ import matplotlib.pyplot as plt
 
 def XGBoost_model_predict(symbol: str, days_to_predict: int, from_date: str) -> dict:
     try:
-        # Prepare date ranges
-        end_date = datetime.today()
-        start_date = end_date - timedelta(days=3 * 365)
         from_date_dt = pd.to_datetime(from_date)
+        end_date = datetime.today()
+        start_date = end_date - timedelta(days=6 * 365)
 
-        # Download adjusted close prices
-        series = yf.download(symbol, start=start_date, end=end_date, auto_adjust=False)['Adj Close']
-        if series.empty:
+        # Download data
+        df = yf.download(symbol, start=start_date, end=end_date, auto_adjust=False)[['Adj Close']]
+        if df.empty:
             raise ValueError(f"No data found for symbol '{symbol}'.")
+        df.columns = ['price']
 
-        df = pd.DataFrame(series)
-        df.columns = [symbol]
-
-        # Create rolling window features
+        # Feature engineering
         for window in [2, 5, 10, 20, 60]:
-            df[f'{symbol}_rolling_{window}'] = df[symbol].rolling(window=window).mean().ffill().bfill()
-            df[f'{symbol}_rollingSTD_{window}'] = df[symbol].rolling(window=window).std().ffill().bfill()
-            df[f'{symbol}_rollingMedian_{window}'] = df[symbol].rolling(window=window).median().ffill().bfill()
+            df[f'rolling_{window}'] = df['price'].rolling(window).mean()
+            df[f'std_{window}'] = df['price'].rolling(window).std()
+            df[f'median_{window}'] = df['price'].rolling(window).median()
 
-        df.bfill(inplace=True)
-        df.ffill(inplace=True)
+        df = df.bfill().ffill()
 
-        # Scale features
-        X = df.drop(columns=[symbol])
-        y = df[symbol]
+        # Prepare features
+        X = df.drop(columns=['price'])
+        y = df['price']
 
         scaler = StandardScaler()
         X_scaled = pd.DataFrame(scaler.fit_transform(X), index=X.index, columns=X.columns)
 
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y, test_size=0.2, shuffle=False, random_state=42
-        )
-
-        # Fit model
+        # Train on full data
         model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42)
-        model.fit(X_train, y_train)
+        model.fit(X_scaled, y)
 
-        # Predict on test data
-        y_pred = model.predict(X_test)
-        
-        # Calculate metrics
-        mae = mean_absolute_error(y_test, y_pred)
-        mse = mean_squared_error(y_test, y_pred)
-        std = float(np.std(y_pred))
-        r2 = r2_score(y_test, y_pred)
+        # Predict full history
+        y_pred_all = model.predict(X_scaled)
 
-        # Future predictions
-        last_window = X_scaled.iloc[-days_to_predict:]
-        y_future_pred = model.predict(last_window)
+        # Metrics on last 10% (like GRU)
+        split_index = int(0.9 * len(y))
+        y_test = y[split_index:]
+        y_pred_test = y_pred_all[split_index:]
 
-        # Generate future dates
-        last_date = y_test.index[-1]
-        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=days_to_predict, freq='D')
+        mae = mean_absolute_error(y_test, y_pred_test)
+        mse = mean_squared_error(y_test, y_pred_test)
+        std = float(np.std(y_pred_test))
+        r2 = r2_score(y_test, y_pred_test)
 
-        # Prepare actual data (test set actual values)
+        # Forecasting (pct change simulation)
+        pct_change_distribution = pd.Series(y_pred_all).pct_change().dropna()
+        last_price = y_pred_all[-1]
+        future_predictions = [last_price]
+        for _ in range(days_to_predict):
+            pct = np.random.choice(pct_change_distribution)
+            next_price = future_predictions[-1] * (1 + pct)
+            future_predictions.append(next_price)
+
+        # Format output JSON
         actual_data = []
-        for date, price in y_test.items():
-            if date >= from_date_dt:
-                actual_data.append([date.strftime('%Y-%m-%d'), float(price)])
-
-        # Prepare predicted data (test set predictions)
         predicted_data = []
-        for date, price in zip(y_test.index, y_pred):
+        for date, true_price, pred_price in zip(df.index, y.values, y_pred_all):
             if date >= from_date_dt:
-                predicted_data.append([date.strftime('%Y-%m-%d'), float(price)])
+                actual_data.append([date.strftime('%Y-%m-%d'), float(true_price)])
+                predicted_data.append([date.strftime('%Y-%m-%d'), float(pred_price)])
 
-        # Prepare forecasted data (future predictions)
-        forecasted_data = []
-        for date, price in zip(future_dates, y_future_pred):
-            forecasted_data.append([date.strftime('%Y-%m-%d'), float(price)])
+        forecast_dates = pd.date_range(df.index[-1] + timedelta(days=1), periods=days_to_predict)
+        forecasted_data = [[date.strftime("%Y-%m-%d"), float(price)] for date, price in zip(forecast_dates, future_predictions[1:])]
 
         return {
             'symbol': symbol,
