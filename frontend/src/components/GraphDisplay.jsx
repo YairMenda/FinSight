@@ -120,16 +120,18 @@ const GraphDisplay = ({ predictionData, loading }) => {
 
       <div style={{ width: '100%', height: 400 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
-              label={{ value: 'Date', position: 'insideBottom', dy: 5 }}
+              label={{ value: 'Date', position: 'insideBottom', offset: -10 }}
               tick={{ fontSize: 12 }}
             />
             <YAxis
               domain={['dataMin - 5', 'dataMax + 5']}
               tick={{ fontSize: 12 }}
+              label={{ value: 'Stock Price ($)', angle: -90, position: 'insideLeft' }}
+              tickFormatter={(value) => `$${value.toFixed(2)}`}
             />
             <Tooltip
               labelFormatter={(value) => `Date: ${value}`}
