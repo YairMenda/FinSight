@@ -5,6 +5,21 @@ const api = axios.create({
 });
 
 export const searchStocks = (q) => api.get('/stocks/search', { params: { q } }).then(r => r.data);
+
+// Validate if a stock symbol exists
+export const validateStock = async (symbol) => {
+  try {
+    const response = await api.get(`/stocks/${symbol}`);
+    return { valid: true, data: response.data };
+  } catch (error) {
+    return { 
+      valid: false, 
+      error: error.response?.data?.error || 'Stock symbol not found',
+      status: error.response?.status || 500
+    };
+  }
+};
+
 export const getStock = (symbol) => api.get(`/stocks/${symbol}`).then(r => r.data);
 
 // Updated prediction API to match backend endpoint

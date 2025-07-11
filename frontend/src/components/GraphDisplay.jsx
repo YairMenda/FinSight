@@ -118,13 +118,13 @@ const GraphDisplay = ({ predictionData, loading }) => {
         </ButtonGroup>
       </Box>
 
-      <div style={{ width: '100%', height: 400 }}>
+      <div style={{ width: '100%', height: 500, marginBottom: '2rem' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 100 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
-              label={{ value: 'Date', position: 'insideBottom', offset: -10 }}
+              label={{ value: 'Date', position: 'insideBottom', offset: -5 }}
               tick={{ fontSize: 12 }}
             />
             <YAxis
@@ -137,7 +137,11 @@ const GraphDisplay = ({ predictionData, loading }) => {
               labelFormatter={(value) => `Date: ${value}`}
               formatter={(value, name) => [`$${value?.toFixed(2)}`, name]}
             />
-            <Legend />
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+              wrapperStyle={{ paddingTop: '20px' }}
+            />
 
             {visibleSeries.actual && (
               <Line
