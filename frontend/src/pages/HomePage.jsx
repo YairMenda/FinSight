@@ -7,22 +7,42 @@ import {
   Grid,
   Paper,
   Container,
-  Chip
+  Chip,
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import SearchBar from '../components/SearchBar';
-import { PREDICTION_MODELS } from '../services/api';
+import { PREDICTION_MODELS, validateStock } from '../services/api';
 
 const HomePage = () => {
   const navigate = useNavigate();
   const [selectedSymbol, setSelectedSymbol] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState(null);
 
-  const handleSelect = (symbol) => {
-    setSelectedSymbol(symbol);
-    navigate(`/predict/${symbol}`);
+  const handleSelect = async (symbol) => {
+    setValidating(true);
+    setValidationError(null);
+
+    try {
+      const validation = await validateStock(symbol);
+
+      if (validation.valid) {
+        setSelectedSymbol(symbol);
+        navigate(`/predict/${symbol}`);
+      } else {
+        setValidationError(validation.error || 'Stock symbol not found. Please try a different symbol.');
+      }
+    } catch (err) {
+      console.error('Validation failed:', err);
+      setValidationError('Failed to validate stock symbol. Please try again.');
+    } finally {
+      setValidating(false);
+    }
   };
 
   const handleQuickPredict = (symbol) => {
-    navigate(`/predict/${symbol}`);
+    handleSelect(symbol);
   };
 
   const popularStocks = [
@@ -61,6 +81,24 @@ const HomePage = () => {
               <Box maxWidth="600px" mx="auto">
                 <SearchBar onSearch={handleSelect} />
               </Box>
+
+              {/* Validation loading and error states */}
+              {validating && (
+                <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+                  <CircularProgress size={20} sx={{ mr: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Validating stock symbol...
+                  </Typography>
+                </Box>
+              )}
+
+              {validationError && (
+                <Box mt={2}>
+                  <Alert severity="error" onClose={() => setValidationError(null)}>
+                    {validationError}
+                  </Alert>
+                </Box>
+              )}
             </Paper>
           </Grid>
 
@@ -95,12 +133,13 @@ const HomePage = () => {
                         <Button
                           size="small"
                           variant="contained"
+                          disabled={validating}
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/predict/${stock.symbol}`);
+                            handleSelect(stock.symbol);
                           }}
                         >
-                          View
+                          {validating ? <CircularProgress size={16} /> : 'View'}
                         </Button>
                       </Box>
                     </Paper>

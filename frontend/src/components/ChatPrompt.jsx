@@ -37,40 +37,43 @@ const ChatPrompt = () => {
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-          borderRadius: '10px 0 0 10px',
-          background: '#242424',
+          borderRadius: '50px 10px 10px 50px',
+          background: 'rgb(0, 0, 0)',
           boxShadow: '0 0 12px rgba(100,108,255,0.6)',
+          backgroundImage: "url('/logo.png')",
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+          backgroundSize: '70%',
         },
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="h4" sx={{mt: 2, fontWeight: 'bold', textAlign: 'center' }}>
+        <Typography variant="h4" sx={{ mt: 2, fontWeight: 'bold', textAlign: 'center' }}>
           Ask Anything
         </Typography>
       </Box>
-      <Box sx={{ flex: 1, overflowY: 'auto', display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
-        {messages.map((m, idx) => (
-          <Box key={idx} sx={{
-            mb: 1,
-            textAlign: m.role === 'user' ? 'right' : 'left',
-          }}>
-            <Typography
-              sx={{
-                display: 'inline-block',
-                p: 1.2,
-                px: 1.8,
-                borderRadius: '12px',
-                background: m.role === 'user' ? '#646cff' : '#333',
-                color: m.role === 'user' ? '#fff' : '#e0e0e0',
-                boxShadow: '0 0 6px rgba(100,108,255,0.4)',
-                maxWidth: '90%',
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {m.content}
-            </Typography>
-          </Box>
-        ))}
+      <Box sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative', zIndex: 1 }}>        {messages.map((m, idx) => (
+        <Box key={idx} sx={{
+          mb: 1,
+          textAlign: m.role === 'user' ? 'right' : 'left',
+        }}>
+          <Typography
+            sx={{
+              display: 'inline-block',
+              p: 1.2,
+              px: 1.8,
+              borderRadius: '12px',
+              background: m.role === 'user' ? '#646cff' : '#333',
+              color: m.role === 'user' ? '#fff' : '#e0e0e0',
+              boxShadow: '0 0 6px rgba(100,108,255,0.4)',
+              maxWidth: '90%',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {m.content}
+          </Typography>
+        </Box>
+      ))}
       </Box>
       <Box sx={{ display: 'flex', gap: 1 }}>
         <TextField

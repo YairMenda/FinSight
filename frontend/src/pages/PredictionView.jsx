@@ -28,6 +28,8 @@ const PredictionView = () => {
   const [predictionData, setPredictionData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [stockDataLoading, setStockDataLoading] = useState(false);
+  const [validSymbol, setValidSymbol] = useState(false);
 
   // Helper function to calculate min/max from prediction data arrays
   const calculateMinMaxFromPredictionData = (data) => {
@@ -70,7 +72,10 @@ const PredictionView = () => {
   };
 
   const handlePredict = async () => {
-    if (!symbol || !selectedModel) return;
+    if (!symbol || !selectedModel || !validSymbol) {
+      setError('Please select a valid stock symbol before making predictions.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -89,7 +94,9 @@ const PredictionView = () => {
   // Fetch stock data when symbol changes
   useEffect(() => {
     if (symbol) {
+      setStockDataLoading(true);
       setError(null);
+      setValidSymbol(false);
 
       getStock(symbol)
         .then(data => {
@@ -103,10 +110,17 @@ const PredictionView = () => {
             expectedGrowth: data.quote.trailingPE ? `${data.quote.trailingPE.toFixed(2)} P/E` : 'N/A'
           };
           setStockData(transformedData);
+          setValidSymbol(true);
         })
         .catch(err => {
           console.error('Failed to fetch stock data:', err);
-          setError('Failed to fetch stock data');
+          setError(`Failed to fetch stock data for ${symbol.toUpperCase()}. Please check if the symbol is valid.`);
+          setStockData(null);
+          setValidSymbol(false);
+          setPredictionData(null); // Clear any existing prediction data
+        })
+        .finally(() => {
+          setStockDataLoading(false);
         });
     }
   }, [symbol]);
@@ -133,16 +147,16 @@ const PredictionView = () => {
     }
   }, [urlSymbol]);
 
-  // Auto-trigger prediction when symbol is provided via URL
+  // Auto-trigger prediction when symbol is provided via URL and stock data is valid
   useEffect(() => {
-    if (urlSymbol && !predictionData && !loading) {
+    if (urlSymbol && !predictionData && !loading && validSymbol && stockData) {
       // Small delay to ensure the symbol state is updated
       const timer = setTimeout(() => {
         handlePredict();
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [urlSymbol, predictionData, loading]);
+  }, [urlSymbol, predictionData, loading, validSymbol, stockData]);
 
   const handleSymbolChange = (newSymbol) => {
     setSymbol(newSymbol.toUpperCase());
@@ -208,7 +222,7 @@ const PredictionView = () => {
           <Button
             variant="contained"
             onClick={handlePredict}
-            disabled={loading || !symbol}
+            disabled={loading || !symbol || !validSymbol || stockDataLoading}
             size="large"
             sx={{ minWidth: 120 }}
           >
@@ -219,6 +233,19 @@ const PredictionView = () => {
         {error && (
           <Alert severity="error" onClose={() => setError(null)}>
             {error}
+          </Alert>
+        )}
+
+        {stockDataLoading && (
+          <Alert severity="info" sx={{ display: 'flex', alignItems: 'center' }}>
+            <CircularProgress size={20} sx={{ mr: 1 }} />
+            Loading stock data for {symbol.toUpperCase()}...
+          </Alert>
+        )}
+
+        {!validSymbol && !stockDataLoading && symbol && (
+          <Alert severity="warning">
+            Invalid stock symbol. Please search for a valid symbol before making predictions.
           </Alert>
         )}
       </div>

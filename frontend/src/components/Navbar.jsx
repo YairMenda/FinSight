@@ -80,6 +80,16 @@ const Navbar = () => {
               FinSight uses XGBoost, an optimized distributed gradient boosting library, to create our predictive models. This machine learning algorithm is designed for speed and performance, allowing us to analyze complex market data and deliver accurate stock price predictions with high efficiency.
             </Typography>
 
+            <Typography variant="h6" sx={{ color: '#6366F1', mb: 1, mt: 3 }}>GRU (Gated Recurrent Unit)</Typography>
+            <Typography paragraph>
+              Our GRU model is a deep learning neural network specifically designed for sequential time series data. Using TensorFlow and Keras, this model employs memory cells that can capture long-term dependencies in stock price movements, making it particularly effective at learning patterns in historical market data and predicting future price trends.
+            </Typography>
+
+            <Typography variant="h6" sx={{ color: '#6366F1', mb: 1, mt: 3 }}>LightGBM</Typography>
+            <Typography paragraph>
+              LightGBM is a fast and efficient gradient boosting framework that delivers high accuracy with optimized performance. This model excels at handling structured financial data with engineered features, providing rapid training and prediction capabilities while maintaining excellent accuracy in stock price forecasting.
+            </Typography>
+
             <Typography variant="h6" sx={{ color: '#6366F1', mb: 1, mt: 3 }}>Yahoo Finance Integration</Typography>
             <Typography paragraph>
               Our platform connects to Yahoo Finance APIs to retrieve real-time and historical stock data. This integration provides access to comprehensive financial information, including price history, company fundamentals, and market trends that power our analytics and visualizations.
