@@ -24,7 +24,9 @@ fin-sight/
 ```bash
 # install backend deps
 cd backend
-npm install
+python -m venv .venv
+source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
+pip install flask yfinance pandas scikit-learn ta lightgbm
 
 # install frontend deps
 cd ../frontend
@@ -43,7 +45,8 @@ Start both servers in two terminals:
 ```bash
 # terminal 1 – backend
 cd backend
-npm run dev
+source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
+python app.py
 
 # terminal 2 – frontend
 cd frontend
