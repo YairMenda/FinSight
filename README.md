@@ -58,8 +58,7 @@ Open `http://localhost:5173` (default Vite port).
 
 ## Scripts
 ### Backend
-* `npm run dev` – start with nodemon
-* `npm start` – start normally
+* `python app.py` – start normally
 
 ### Frontend
 * `npm run dev` – Vite dev server
