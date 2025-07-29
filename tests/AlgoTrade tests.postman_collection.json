@@ -1,0 +1,400 @@
+{
+	"info": {
+		"_postman_id": "cae63324-7cc1-46ce-8748-777849d84d9c",
+		"name": "AlgoTrade tests",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44924719",
+		"_collection_link": "https://shalev-8192599.postman.co/workspace/1ec529b7-4b96-485b-8fc4-acb090f66065/collection/44924719-cae63324-7cc1-46ce-8748-777849d84d9c?action=share&source=collection_link&creator=44924719"
+	},
+	"item": [
+		{
+			"name": "Search Apple tests",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", () => {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Response is an array\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data).to.be.an(\"array\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Max 10 results\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.length).to.be.at.most(10);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Each result has required fields\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    if (data.length > 0) {\r",
+							"        const item = data[0];\r",
+							"        pm.expect(item).to.have.property(\"symbol\");\r",
+							"        pm.expect(item).to.have.property(\"name\");\r",
+							"        pm.expect(item).to.have.property(\"exchange\");\r",
+							"        pm.expect(item).to.have.property(\"type\");\r",
+							"    }\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Search term appears in results\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    if (data.length > 0) {\r",
+							"        pm.expect(data[0].name.toLowerCase()).to.include(\"apple\");\r",
+							"    }\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/stocks/search?q=apple",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"stocks",
+						"search"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "apple"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "History Apple tests",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", () => {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Response includes quote and history\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data).to.have.property(\"quote\");\r",
+							"    pm.expect(data).to.have.property(\"history\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Quote includes regularMarketPrice\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.quote).to.have.property(\"regularMarketPrice\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"History is an array\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.history).to.be.an(\"array\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"History contains expected fields\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    const entry = data.history[0];\r",
+							"    pm.expect(entry).to.have.property(\"Open\");\r",
+							"    pm.expect(entry).to.have.property(\"Close\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Quote symbol matches AAPL\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.quote.symbol || \"\").to.include(\"AAPL\");\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/stocks/AAPL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"stocks",
+						"AAPL"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Predict GRU tests",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", () => {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Prediction includes symbol and metrics\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data).to.have.property(\"symbol\", \"AAPL\");\r",
+							"    pm.expect(data).to.have.property(\"metrics\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Metrics include MAE, MSE, R2, STD\", () => {\r",
+							"    const m = pm.response.json().metrics;\r",
+							"    [\"MAE\", \"MSE\", \"R2\", \"STD\"].forEach(k => pm.expect(m).to.have.property(k));\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Actual and forecasted are arrays\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.actual).to.be.an(\"array\");\r",
+							"    pm.expect(data.forecasted).to.be.an(\"array\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Forecasted has at least 7 entries\", () => {\r",
+							"    const forecast = pm.response.json().forecasted;\r",
+							"    pm.expect(forecast.length).to.be.at.least(7);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"MAE is a number\", () => {\r",
+							"    const mae = pm.response.json().metrics.MAE;\r",
+							"    pm.expect(mae).to.be.a(\"number\");\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/stocks/predict_gru/AAPL/predict/10/2024-01-01",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"stocks",
+						"predict_gru",
+						"AAPL",
+						"predict",
+						"10",
+						"2024-01-01"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Predict lightGBM tests",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status is 200\", () => {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Response has correct structure\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    [\"symbol\", \"actual\", \"predicted\", \"forecasted\", \"metrics\"].forEach(k =>\r",
+							"        pm.expect(data).to.have.property(k)\r",
+							"    );\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Metrics are valid floats\", () => {\r",
+							"    const m = pm.response.json().metrics;\r",
+							"    pm.expect(m.MAE).to.be.a(\"number\");\r",
+							"    pm.expect(m.R2).to.be.within(-1, 1);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Symbol is GOOGL\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.symbol).to.equal(\"GOOGL\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Data arrays are not empty\", () => {\r",
+							"    const d = pm.response.json();\r",
+							"    pm.expect(d.actual.length).to.be.above(0);\r",
+							"    pm.expect(d.predicted.length).to.be.above(0);\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/stocks/predict_lightgbm/GOOGL/predict/10/2024-01-01",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"stocks",
+						"predict_lightgbm",
+						"GOOGL",
+						"predict",
+						"10",
+						"2024-01-01"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "History Tesla tests",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", () => {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Response is an array\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data).to.be.an(\"array\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Array contains OHLCV data\", () => {\r",
+							"    const item = pm.response.json()[0];\r",
+							"    [\"Open\", \"High\", \"Low\", \"Close\", \"Volume\"].forEach(k =>\r",
+							"        pm.expect(item).to.have.property(k)\r",
+							"    );\r",
+							"});\r",
+							"\r",
+							"pm.test(\"At least 10 records returned\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.length).to.be.at.least(10);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Each record has a date\", () => {\r",
+							"    const item = pm.response.json()[0];\r",
+							"    pm.expect(item).to.have.property(\"Date\");\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/stocks/TSLA/history?range=6mo&interval=1wk",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"stocks",
+						"TSLA",
+						"history"
+					],
+					"query": [
+						{
+							"key": "range",
+							"value": "6mo"
+						},
+						{
+							"key": "interval",
+							"value": "1wk"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Stock search symbol not found tests",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Should return 500 for unknown symbol\", () => {\r",
+							"    pm.response.to.have.status(500);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Response contains error key\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data).to.have.property(\"error\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Error message mentions symbol\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.message || \"\").to.include(\"INVALIDSYMBOL\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Message is a string\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.message).to.be.a(\"string\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"No quote or history returned\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data).to.not.have.property(\"quote\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Error is logged clearly\", () => {\r",
+							"    const data = pm.response.json();\r",
+							"    pm.expect(data.error).to.match(/Failed to fetch stock data/i);\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/stocks/INVALIDSYMBOL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"stocks",
+						"INVALIDSYMBOL"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
