@@ -26,7 +26,7 @@ fin-sight/
 cd backend
 python -m venv .venv
 source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
-pip install flask yfinance pandas scikit-learn ta lightgbm
+pip install flask yfinance pandas scikit-learn ta lightgbm flask_cors yahooquery tensorflow matplotlib xgboost
 
 # install frontend deps
 cd ../frontend
